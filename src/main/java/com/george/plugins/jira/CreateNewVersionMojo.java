@@ -1,8 +1,6 @@
 package com.george.plugins.jira;
 
 import java.util.Comparator;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.maven.plugin.logging.Log;
 
