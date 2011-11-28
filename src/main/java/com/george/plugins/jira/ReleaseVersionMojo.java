@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Comparator;
 
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 
 import com.atlassian.jira.rpc.soap.client.JiraSoapService;
@@ -23,6 +24,15 @@ import com.atlassian.jira.rpc.soap.client.RemoteVersion;
  */
 public class ReleaseVersionMojo extends AbstractJiraMojo {
 
+    /**
+     * Next Development Version
+     *
+     * @parameter expression="${developmentVersion}"
+     * default-value="${project.version}"
+     * @required
+     */
+    String developmentVersion;
+
 	/**
 	 * Released Version
 	 * 
@@ -37,6 +47,9 @@ public class ReleaseVersionMojo extends AbstractJiraMojo {
 	 * @parameter expression="${autoDiscoverLatestRelease}" default-value="true"
 	 */
 	boolean autoDiscoverLatestRelease;
+
+
+
 
 	/**
 	 * Comparator for discovering the latest release
@@ -54,16 +67,51 @@ public class ReleaseVersionMojo extends AbstractJiraMojo {
 		log.debug("Login Token returned: " + loginToken);
 		RemoteVersion[] versions = jiraService.getVersions(loginToken,
 				jiraProjectKey);
-		String thisReleaseVersion = (autoDiscoverLatestRelease) ? calculateLatestReleaseVersion(versions)
-				: releaseVersion;
-		if (thisReleaseVersion != null) {
-			log.info("Releasing Version " + this.releaseVersion);
+
+
+        String thisReleaseVersion =null;
+        thisReleaseVersion = composeJiraVersion(developmentVersion);
+
+        RemoteVersion versionToRelease = findVersion(versions, thisReleaseVersion);
+
+
+        if (versionToRelease == null) {
+            versionToRelease = findVersion(versions, releaseVersion);
+            if (versionToRelease == null) {
+                thisReleaseVersion =
+                        (autoDiscoverLatestRelease) ? calculateLatestReleaseVersion(versions) : releaseVersion;
+                versionToRelease = findVersion(versions, thisReleaseVersion);
+            }
+
+
+        }
+
+
+        getLog().debug("releaseing" + versionToRelease);
+
+        if (versionToRelease!=null) {
+			log.info("Releasing Version " + versionToRelease.getName());
 			markVersionAsReleased(jiraService, loginToken, versions,
-					thisReleaseVersion);
-		}
+					versionToRelease.getName());
+		} else {
+            throw new MojoExecutionException("Could not find version to release.");
+        }
 	}
-	
-	/**
+
+    private static RemoteVersion findVersion(RemoteVersion[] versions, String versionToFind) {
+        RemoteVersion versionToRelease = null;
+        for (int i = 0; i < versions.length; i++) {
+            RemoteVersion version = versions[i];
+            if(version.getName().equalsIgnoreCase(versionToFind)) {
+                versionToRelease = version;
+                break;
+
+            }
+        }
+        return versionToRelease;
+    }
+
+    /**
 	 * Returns the latest unreleased version
 	 * 
 	 * @param versions

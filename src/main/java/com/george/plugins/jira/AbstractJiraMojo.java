@@ -2,6 +2,8 @@ package com.george.plugins.jira;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.rpc.ServiceException;
 
@@ -53,14 +55,14 @@ public abstract class AbstractJiraMojo extends AbstractMojo {
 	/**
 	 * JIRA Authentication User.
 	 * 
-	 * @parameter expression="${jiraUser}" default-value="${scmUsername}"
+	 * @parameter expression="${jiraUser}"
 	 */
 	protected String jiraUser;
 
 	/**
 	 * JIRA Authentication Password.
 	 * 
-	 * @parameter expression="${jiraPassword}" default-value="${scmPassword}"
+	 * @parameter expression="${jiraPassword}"
 	 */
 	protected String jiraPassword;
 
@@ -71,6 +73,18 @@ public abstract class AbstractJiraMojo extends AbstractMojo {
 	 */
 	protected String jiraProjectKey;
 
+
+    /**
+     * Regular expression used to calculate the matching jira version
+     * @parameter default-value=""
+     */
+    protected String regularExpression;
+    /**
+     * if regular expression is used to extract jira version, the optional group to use in a parenthetical
+     * expressoin.
+     * @parameter group default-value="0"
+     */
+    protected String group;
 	transient JiraSoapService jiraService;
 
 	/**
@@ -133,6 +147,7 @@ public abstract class AbstractJiraMojo extends AbstractMojo {
 	 * properties
 	 */
 	void loadUserInfoFromSettings() {
+
 		if (settingsKey == null) {
 			settingsKey = jiraURL;
 		}
@@ -206,4 +221,25 @@ public abstract class AbstractJiraMojo extends AbstractMojo {
 		this.settingsKey = settingsKey;
 	}
 
+    protected String composeJiraVersion(String developmentVersion) {
+        String newDevVersion = null;
+        if (developmentVersion!=null) {
+            newDevVersion = developmentVersion.replace("-SNAPSHOT", "");
+
+            if (regularExpression != null && !"".equals(regularExpression)) {
+                Pattern compile = Pattern.compile(regularExpression);
+                Matcher matcher = compile.matcher(newDevVersion);
+                if (matcher.find()) {
+
+                    if (group!=null && !"".equals(group)) {
+                        newDevVersion = matcher.group(Integer.parseInt(group));
+                    } else {
+                        newDevVersion = matcher.group(0);
+                    }
+                }
+                getLog().info("extracted version[" + newDevVersion + "] using expression.");
+            }
+        }
+        return newDevVersion;
+    }
 }

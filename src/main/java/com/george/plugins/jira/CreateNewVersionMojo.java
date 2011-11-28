@@ -1,6 +1,8 @@
 package com.george.plugins.jira;
 
 import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.maven.plugin.logging.Log;
 
@@ -13,6 +15,8 @@ import com.atlassian.jira.rpc.soap.client.RemoteVersion;
  * 
  * @goal create-new-jira-version
  * @phase deploy
+ * @aggregator
+ *
  * 
  * @author George Gastaldi
  */
@@ -43,8 +47,8 @@ public class CreateNewVersionMojo extends AbstractJiraMojo {
 		RemoteVersion[] versions = jiraService.getVersions(loginToken,
 				jiraProjectKey);
 		// Removing -SNAPSHOT suffix for safety
-		String newDevVersion = developmentVersion.replace("-SNAPSHOT",
-				"");
+        String newDevVersion = composeJiraVersion(developmentVersion);
+
 		boolean versionExists = isVersionAlreadyPresent(versions,
 				newDevVersion);
 		if (!versionExists) {
@@ -64,8 +68,8 @@ public class CreateNewVersionMojo extends AbstractJiraMojo {
 									newDevVersion));
 		}
 	}
-	
-	/**
+
+    /**
 	 * Check if version is already present on array
 	 * 
 	 * @param versions

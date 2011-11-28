@@ -9,8 +9,9 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.rmi.RemoteException;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.wagon.util.IoUtils;
 
 import com.atlassian.jira.rpc.soap.client.JiraSoapService;
 import com.atlassian.jira.rpc.soap.client.RemoteIssue;
@@ -23,6 +24,7 @@ import com.atlassian.jira.rpc.soap.client.RemoteIssue;
  * 
  * @goal generate-release-notes
  * @phase deploy
+ * @aggregator
  * 
  * @author George Gastaldi
  */
@@ -34,7 +36,7 @@ public class GenerateReleaseNotesMojo extends AbstractJiraMojo {
 	 * Parameter 1 = Fix version
 	 * 
 	 * @parameter expression="${jqlTemplate}"
-	 * @required
+	 *
 	 */
 	String jqlTemplate = "project = ''{0}'' AND status in (Resolved, Closed) AND fixVersion = ''{1}''";
 
@@ -44,7 +46,7 @@ public class GenerateReleaseNotesMojo extends AbstractJiraMojo {
 	 * Parameter 1 = Issue Summary
 	 * 
 	 * @parameter expression="${issueTemplate}"
-	 * @required
+	 *
 	 */
 	String issueTemplate = "[{0}] {1}";
 
@@ -69,7 +71,7 @@ public class GenerateReleaseNotesMojo extends AbstractJiraMojo {
 	 * Target file
 	 * 
 	 * @parameter expression="${targetFile}"
-	 *            default-value="${outputDirectory}/releaseNotes.txt"
+	 *            default-value="${project.build.directory}/releaseNotes.txt"
 	 * @required
 	 */
 	File targetFile;
@@ -109,7 +111,8 @@ public class GenerateReleaseNotesMojo extends AbstractJiraMojo {
 			throws RemoteException,
 			com.atlassian.jira.rpc.soap.client.RemoteException {
 		Log log = getLog();
-		String jql = format(jqlTemplate, jiraProjectKey, releaseVersion);
+        String jiraVersion = composeJiraVersion(releaseVersion);
+        String jql = format(jqlTemplate, jiraProjectKey, jiraVersion);
 		if (log.isInfoEnabled()) {
 			log.info("JQL: " + jql);
 		}
@@ -135,7 +138,14 @@ public class GenerateReleaseNotesMojo extends AbstractJiraMojo {
 			log.warn("No issues found. File will not be generated.");
 			return;
 		}
-		OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(targetFile,true), "Cp1252");
+
+        FileUtils.forceMkdir(new File(targetFile.getParent()));
+
+        if (!targetFile.exists()) {
+            targetFile.createNewFile();
+        }
+
+		OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(targetFile,true), "UTF-8");
 		PrintWriter ps = new PrintWriter(writer);
 		try {
 			if (beforeText != null) {
@@ -150,7 +160,8 @@ public class GenerateReleaseNotesMojo extends AbstractJiraMojo {
 			}
 		} finally {
 			ps.flush();
-			IoUtils.close(ps);
+            IOUtils.closeQuietly(ps);
+
 		}
 	}
 
